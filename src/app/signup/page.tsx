@@ -1,0 +1,296 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Button } from '@/components/ui/Button';
+import { EnhancedInput } from '@/components/ui/EnhancedInput';
+import PasswordStrengthMeter from '@/components/PasswordStrengthMeter';
+import AuthLayout from '@/components/AuthLayout';
+import { auth } from '@/lib/firebase/firebase';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { toast } from 'sonner';
+
+export default function SignupPage() {
+  const [formData, setFormData] = useState({
+    displayName: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const router = useRouter();
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    // Email validation
+    if (!formData.email) {
+      newErrors.email = 'Email is required.';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Enter a valid email.';
+    }
+
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = 'Password is required.';
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters.';
+    } else if (!/(?=.*[a-zA-Z])(?=.*[0-9])/.test(formData.password)) {
+      newErrors.password = 'Please choose a stronger password.';
+    }
+
+    // Confirm password validation
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password.';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords don\'t match.';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+
+      if (formData.displayName.trim()) {
+        await updateProfile(userCredential.user, {
+          displayName: formData.displayName.trim()
+        });
+      }
+
+      toast.success('Account created successfully! Welcome to PicklePath! 🏓');
+      router.push('/onboarding');
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      let message = 'Signup failed. Please try again.';
+      
+      if (error.code === 'auth/email-already-in-use') {
+        message = 'An account with this email already exists.';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Invalid email address.';
+      } else if (error.code === 'auth/weak-password') {
+        message = 'Password is too weak.';
+      }
+      
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hasAppleAuth = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
+
+  return (
+    <AuthLayout 
+      title="Join PicklePath"
+      subtitle="Your complete coaching system from beginner to 4.0."
+      micro="Now forming our Founding Player Group—shape the future of pickleball training."
+    >
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <EnhancedInput
+          label="Display Name (Optional)"
+          type="text"
+          value={formData.displayName}
+          onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
+          placeholder="Enter your name"
+          autoComplete="name"
+        />
+
+        <EnhancedInput
+          label="Email"
+          type="email"
+          value={formData.email}
+          onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+          placeholder="Enter your email"
+          required
+          autoComplete="email"
+          error={errors.email}
+          isInvalid={!!errors.email}
+        />
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Password
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={formData.password}
+              onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+              placeholder="Create a password"
+              required
+              autoComplete="new-password"
+              className={`flex h-11 w-full rounded-lg border px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00BFA6]/60 focus-visible:border-[#00BFA6] disabled:cursor-not-allowed disabled:opacity-50 ${
+                errors.password ? 'border-red-500 focus-visible:ring-red-500/60 focus-visible:border-red-500' : 'border-gray-300'
+              }`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showPassword ? '👁️' : '🙈'}
+            </button>
+          </div>
+          <p className="text-sm text-gray-500">
+            At least 8 characters. Use a mix of letters and numbers.
+          </p>
+          <PasswordStrengthMeter password={formData.password} />
+          {errors.password && (
+            <p className="text-sm text-red-600">{errors.password}</p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Confirm Password
+          </label>
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={formData.confirmPassword}
+              onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+              placeholder="Confirm your password"
+              required
+              autoComplete="new-password"
+              className={`flex h-11 w-full rounded-lg border px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00BFA6]/60 focus-visible:border-[#00BFA6] disabled:cursor-not-allowed disabled:opacity-50 ${
+                errors.confirmPassword ? 'border-red-500 focus-visible:ring-red-500/60 focus-visible:border-red-500' : 'border-gray-300'
+              }`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+            >
+              {showConfirmPassword ? '👁️' : '🙈'}
+            </button>
+          </div>
+          {errors.confirmPassword && (
+            <p className="text-sm text-red-600">{errors.confirmPassword}</p>
+          )}
+        </div>
+
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-[#00BFA6] hover:bg-[#00BFA6]/90 text-white font-bold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 hover:brightness-110 active:translate-y-[1px] shadow-lg shadow-[#00BFA6]/25"
+        >
+          {loading ? 'Creating Account...' : 'Create Account'}
+        </Button>
+      </form>
+
+      <div className="mt-6 text-center">
+        <p className="text-sm text-gray-600">
+          Already have an account?{' '}
+          <Link href="/login" className="font-medium text-[#00BFA6] hover:text-[#00BFA6]/80 font-bold">
+            Sign in
+          </Link>
+        </p>
+      </div>
+
+      {/* Benefits Panel */}
+      <div className="mt-8 p-8 bg-gradient-to-br from-slate-50 to-white rounded-3xl border border-slate-200/60 shadow-lg">
+        <h4 className="text-xl font-bold text-slate-900 mb-6 text-center">What you&apos;ll get:</h4>
+        <ul className="space-y-4">
+          <li className="flex items-start">
+            <div className="w-8 h-8 bg-[#00BFA6] rounded-xl flex items-center justify-center mr-4 mt-0.5">
+              <span className="text-white text-lg">🎯</span>
+            </div>
+            <div>
+              <span className="text-slate-900 font-semibold">Structured coaching path</span>
+              <p className="text-slate-600 text-sm mt-1">Learn in the right order with proven progression</p>
+            </div>
+          </li>
+          <li className="flex items-start">
+            <div className="w-8 h-8 bg-[#FF5A5F] rounded-xl flex items-center justify-center mr-4 mt-0.5">
+              <span className="text-white text-lg">📋</span>
+            </div>
+            <div>
+              <span className="text-slate-900 font-semibold">Targeted practice plans</span>
+              <p className="text-slate-600 text-sm mt-1">Weekly goals designed for your skill level</p>
+            </div>
+          </li>
+          <li className="flex items-start">
+            <div className="w-8 h-8 bg-slate-600 rounded-xl flex items-center justify-center mr-4 mt-0.5">
+              <span className="text-white text-lg">📊</span>
+            </div>
+            <div>
+              <span className="text-slate-900 font-semibold">Progress tracking & analytics</span>
+              <p className="text-slate-600 text-sm mt-1">Monitor streaks and skill development over time</p>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      {/* Social Sign-in */}
+      <div className="mt-8">
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-300" />
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">Or continue with</span>
+          </div>
+        </div>
+
+        <div className="mt-6 space-y-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full border-2 border-gray-300 hover:border-[#00BFA6] text-gray-700 hover:text-[#00BFA6] font-bold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 bg-white hover:bg-[#00BFA6]/5"
+          >
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+              <path
+                fill="currentColor"
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+              />
+              <path
+                fill="currentColor"
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+              />
+              <path
+                fill="currentColor"
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+              />
+              <path
+                fill="currentColor"
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+              />
+            </svg>
+            Continue with Google
+          </Button>
+
+          {hasAppleAuth && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full border-2 border-gray-300 hover:border-[#00BFA6] text-gray-700 hover:text-[#00BFA6] font-bold py-3 px-6 rounded-xl transition-all duration-200 transform hover:scale-105 bg-white hover:bg-[#00BFA6]/5"
+            >
+              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+              </svg>
+              Continue with Apple
+            </Button>
+          )}
+        </div>
+      </div>
+    </AuthLayout>
+  );
+}
