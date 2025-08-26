@@ -117,14 +117,32 @@ export default function LoginPage() {
               placeholder="Enter your password"
               required
               autoComplete="current-password"
-              className={`flex h-11 w-full rounded-lg border px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#00BFA6]/60 focus-visible:border-[#00BFA6] disabled:cursor-not-allowed disabled:opacity-50 ${
-                errors.password ? 'border-red-500 focus-visible:ring-red-500/60 focus-visible:border-red-500' : 'border-gray-300'
-              }`}
+              style={{
+                width: '100%',
+                height: '44px',
+                padding: '8px 12px',
+                border: errors.password ? '1px solid #ef4444' : '1px solid #d1d5db',
+                borderRadius: '8px',
+                fontSize: '14px',
+                backgroundColor: 'white',
+                color: '#111827',
+                outline: 'none',
+                cursor: 'text'
+              }}
+              onFocus={(e) => {
+                e.target.style.border = '2px solid #00BFA6';
+                e.target.style.boxShadow = '0 0 0 3px rgba(0, 191, 166, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.border = errors.password ? '1px solid #ef4444' : '1px solid #d1d5db';
+                e.target.style.boxShadow = 'none';
+              }}
+              className="pr-12"
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 z-10"
             >
               {showPassword ? '👁️' : '🙈'}
             </button>
